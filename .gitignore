@@ -1,0 +1,9 @@
+.idea/
+sdkconfig*
+*~
+*.html
+*.lock
+managed_components/
+build/
+cmake.sh
+saved/
