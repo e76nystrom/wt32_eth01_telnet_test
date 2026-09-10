@@ -30,8 +30,8 @@
 #include "esp_timer.h"
 #include "esp32/rom/gpio.h"
 
-#define SERVER
-//#define CLIENT
+//#define SERVER
+#define CLIENT
 #define RTK_SEND
 
 #define UART_NUM UART_NUM_1
@@ -124,7 +124,7 @@ static EventGroupHandle_t eth_event_group;
 #define ETH_CONNECTED_BIT BIT0
 
 #if defined(SERVER)
-const char *hostname = "Server2";
+const char *hostname = "Server1";
 #endif
 
 #if defined(CLIENT)
