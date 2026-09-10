@@ -31,7 +31,7 @@
 #include "esp32/rom/gpio.h"
 
 //#define SERVER
-#define CLIENT
+//#define CLIENT
 #define RTK_SEND
 
 #define UART_NUM UART_NUM_1
