@@ -535,6 +535,7 @@ static void tcp_server_task(void *pvParameters)
         return;
     }
 
+    // ReSharper disable once CppDFAEndlessLoop
     while (1) {
         struct sockaddr_in source_addr;
         socklen_t addr_len = sizeof(source_addr);
