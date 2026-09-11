@@ -6,3 +6,4 @@ managed_components/
 build/
 cmake.sh
 saved/
+build_server/

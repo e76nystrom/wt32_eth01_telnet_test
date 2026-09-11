@@ -1,5 +1,6 @@
 idf_component_register(SRCS "main.c" "test.cpp"
-                       INCLUDE_DIRS ".")
+                       INCLUDE_DIRS "."
+		       PRIV_REQUIRES gpsLib esp_timer esp_driver_uart esp_driver_gpio esp_event esp_netif esp_eth nvs_flash)
 
 set(CMAKE_CXX_STANDARD 17)
 
