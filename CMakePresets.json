@@ -9,7 +9,7 @@
     {
       "name": "server",
       "displayName": "Server",
-      "binaryDir": "${sourceDir}/build_server",
+      "binaryDir": "cmake-build-server",
       "cacheVariables": {
         "BUILD_TARGET": "SERVER"
       }
@@ -17,7 +17,7 @@
     {
       "name": "client",
       "displayName": "Client",
-      "binaryDir": "${sourceDir}/build_client",
+      "binaryDir": "cmake-build-client",
       "cacheVariables": {
         "BUILD_TARGET": "CLIENT"
       }

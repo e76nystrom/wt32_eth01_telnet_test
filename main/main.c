@@ -32,6 +32,15 @@
 
 //#define SERVER
 //#define CLIENT
+
+#if defined(SERVER)
+#pragma message("building SERVER")
+#endif	/* SERVER */
+
+#if defined(CLIENT)
+#pragma message("building CLIENT")
+#endif	/* CLIENT */
+
 #define RTK_SEND
 
 #define UART_NUM UART_NUM_1
@@ -124,7 +133,7 @@ static EventGroupHandle_t eth_event_group;
 #define ETH_CONNECTED_BIT BIT0
 
 #if defined(SERVER)
-const char *hostname = "Server1";
+const char *hostname = "Server2";
 #endif
 
 #if defined(CLIENT)
