@@ -27,5 +27,6 @@
     <mapping directory="$USER_HOME$/.espressif/v6.0.1/esp-idf/components/protobuf-c/protobuf-c" vcs="Git" />
     <mapping directory="$USER_HOME$/.espressif/v6.0.1/esp-idf/components/spiffs/spiffs" vcs="Git" />
     <mapping directory="$USER_HOME$/.espressif/v6.0.1/esp-idf/components/unity/unity" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../gpsLib" vcs="Git" />
   </component>
 </project>

@@ -10,7 +10,7 @@
  * or a netcat listener (`nc -lk 23`) for testing.
  */
 
-#include <string.h>
+#include <cstring>
 #include <lwip/dns.h>
 
 #include "freertos/FreeRTOS.h"
@@ -79,13 +79,16 @@ inline void dbg1Clr()
 }
 
 void uart1_init() {
-    uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity    = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-    };
+    uart_config_t uart_config;
+    uart_config.baud_rate = 115200;
+    uart_config.data_bits = UART_DATA_8_BITS;
+    uart_config.parity = UART_PARITY_DISABLE;
+    uart_config.stop_bits = UART_STOP_BITS_1;
+    uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    uart_config.rx_flow_ctrl_thresh = 0;
+    uart_config.source_clk = UART_SCLK_APB;
+    uart_config.flags.allow_pd = 0;
+    uart_config.flags.backup_before_sleep = 0;
 
     // Apply configuration
     uart_param_config(UART_NUM, &uart_config);
@@ -98,13 +101,16 @@ void uart1_init() {
 }
 
 void uart2_init() {
-    uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity    = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-    };
+    uart_config_t uart_config;
+    uart_config.baud_rate = 115200;
+    uart_config.data_bits = UART_DATA_8_BITS;
+    uart_config.parity = UART_PARITY_DISABLE;
+    uart_config.stop_bits = UART_STOP_BITS_1;
+    uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    uart_config.rx_flow_ctrl_thresh = 0;
+    uart_config.source_clk = UART_SCLK_APB;
+    uart_config.flags.allow_pd = 0;
+    uart_config.flags.backup_before_sleep = 0;
 
     // Apply configuration
     uart_param_config(UART_NUM_2, &uart_config);
@@ -144,7 +150,7 @@ static void eth_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data)
 {
     uint8_t mac_addr[6] = {0};
-    esp_eth_handle_t eth_handle = *(esp_eth_handle_t *)event_data;
+    esp_eth_handle_t eth_handle = *static_cast<esp_eth_handle_t*>(event_data);
 
     switch (event_id) {
     case ETHERNET_EVENT_CONNECTED:
@@ -170,7 +176,7 @@ static void eth_event_handler(void *arg, esp_event_base_t event_base,
 static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
                                   int32_t event_id, void *event_data)
 {
-    ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+    auto *event = static_cast<ip_event_got_ip_t*>(event_data);
     const esp_netif_ip_info_t *ip_info = &event->ip_info;
 
     ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&ip_info->ip));
@@ -186,7 +192,7 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
 
 static void tx_rx_event_handler(void *arg, esp_event_base_t event_base,
 				int32_t event_id, void *event_data) {
-    ip_event_tx_rx_t *event = (ip_event_tx_rx_t *)event_data;
+    auto event = static_cast<ip_event_tx_rx_t*>(event_data);
 
     if (event->dir == ESP_NETIF_RX) {
         // Process incoming data from event->len or associated buffers
@@ -197,7 +203,7 @@ static void tx_rx_event_handler(void *arg, esp_event_base_t event_base,
 
 esp_netif_t *eth_netif;
 
-static esp_eth_handle_t eth_init(void)
+static esp_eth_handle_t eth_init()
 {
   // gpio_set_direction(ETH_RMII_CLK_GPIO, GPIO_MODE_DISABLE);
   // gpio_set_pull_mode(ETH_RMII_CLK_GPIO, GPIO_FLOATING);
@@ -206,8 +212,8 @@ static esp_eth_handle_t eth_init(void)
   // gpio_set_pull_mode(ETH_MDIO_GPIO, GPIO_FLOATING);
 
     /* WT32-ETH01 specific: GPIO16 must be driven high to power the PHY */
-    gpio_set_direction(ETH_PHY_POWER_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_level(ETH_PHY_POWER_GPIO, 1);
+    gpio_set_direction(static_cast<gpio_num_t>(ETH_PHY_POWER_GPIO), GPIO_MODE_OUTPUT);
+    gpio_set_level(static_cast<gpio_num_t>(ETH_PHY_POWER_GPIO), 1);
     vTaskDelay(pdMS_TO_TICKS(100)); /* let the PHY power up */
 
     esp_netif_config_t netif_cfg = ESP_NETIF_DEFAULT_ETH();
@@ -241,19 +247,19 @@ static esp_eth_handle_t eth_init(void)
     esp_eth_phy_t *phy = esp_eth_phy_new_generic(&phy_config);
 
     esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(mac, phy);
-    esp_eth_handle_t eth_handle = NULL;
+    esp_eth_handle_t eth_handle = nullptr;
     ESP_ERROR_CHECK(esp_eth_driver_install(&eth_config, &eth_handle));
 
     ESP_ERROR_CHECK(esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handle)));
 
     ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID,
-                                                &eth_event_handler, NULL));
+                                                &eth_event_handler, nullptr));
 
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP,
-                                                &got_ip_event_handler, NULL));
+                                                &got_ip_event_handler, nullptr));
 
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_TX_RX,
-					       &tx_rx_event_handler, NULL));
+					       &tx_rx_event_handler, nullptr));
 
     ESP_ERROR_CHECK(esp_eth_start(eth_handle));
     return eth_handle;
@@ -350,7 +356,7 @@ static void processData(const unsigned char *ptr, size_t len)
                 rtk.count = 2;
                 uart_write_bytes(UART_NUM_1, ptr, 1);
                 rtk.buf[0] = ch;
-                rtk.crc = crc24qTable[(int) ch];
+                rtk.crc = crc24qTable[static_cast<int>(ch)];
                 crcBuf[0] = rtk.crc;
                 rtk.fil = 1;
                 rtk.t0 = esp_timer_get_time();
@@ -434,7 +440,7 @@ static void processData(const unsigned char *ptr, size_t len)
 
 static void tcp_server_client_handler(void *pvParameters)
 {
-    int sock = (int)(intptr_t)pvParameters;
+    int sock = (int)reinterpret_cast<intptr_t>(pvParameters);
     uint8_t rx_buffer[1600];
     printf("task start server client handler %d\n", sock);
 #if 0
@@ -456,7 +462,7 @@ static void tcp_server_client_handler(void *pvParameters)
         // }
     }
 #else
-    while (1) {
+    while (true) {
         // 1. Check UART
         size_t uart_len = 0;
         uart_get_buffered_data_len(UART_NUM_1, &uart_len);
@@ -492,14 +498,14 @@ static void tcp_server_client_handler(void *pvParameters)
 static void tcp_server_task(void *pvParameters)
 {
     char addr_str[128];
-    int addr_family = (int)pvParameters;
+    int addr_family = reinterpret_cast<int>(pvParameters);
     int ip_protocol = 0;
-    struct sockaddr_storage dest_addr;
+    struct sockaddr_storage dest_addr = {};
 
     printf("tcp server task addr_family %d\n", addr_family);
 
     if (addr_family == AF_INET) {
-        struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
+        auto *dest_addr_ip4 = reinterpret_cast<struct sockaddr_in*>(&dest_addr);
         dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
         dest_addr_ip4->sin_family = AF_INET;
         dest_addr_ip4->sin_port = htons(TCP_SERVER_PORT);
@@ -519,7 +525,7 @@ static void tcp_server_task(void *pvParameters)
     ESP_LOGI(TAG, "Socket created");
     char ip_str[INET_ADDRSTRLEN];
 
-    struct sockaddr_in *ipv4 = (struct sockaddr_in *) &dest_addr;
+    auto ipv4 = reinterpret_cast<struct sockaddr_in*>(&dest_addr);
 
     // Print IP address
     inet_ntop(AF_INET, &ipv4->sin_addr, ip_str, INET_ADDRSTRLEN);
@@ -527,7 +533,7 @@ static void tcp_server_task(void *pvParameters)
 
     printf("IPv4 Address: %s, Port: %d\n", ip_str, port);
 
-    int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    int err = bind(listen_sock, reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr));
     if (err != 0) {
         ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
         close(listen_sock);
@@ -545,10 +551,10 @@ static void tcp_server_task(void *pvParameters)
     }
 
     // ReSharper disable once CppDFAEndlessLoop
-    while (1) {
-        struct sockaddr_in source_addr;
+    while (true) {
+        struct sockaddr_in source_addr = {};
         socklen_t addr_len = sizeof(source_addr);
-        int client_sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
+        int client_sock = accept(listen_sock, reinterpret_cast<struct sockaddr*>(&source_addr), &addr_len);
         if (client_sock < 0) {
             ESP_LOGE(TAG, "[server] accept failed: errno %d", errno);
             continue;
@@ -566,7 +572,7 @@ static void tcp_server_task(void *pvParameters)
         snprintf(task_name, sizeof(task_name), "tcp_cli_%d", client_sock);
         printf("client_sock %s\n", task_name);
         xTaskCreate(tcp_server_client_handler, task_name, 4096,
-                    (void *)(intptr_t)client_sock, 5, nullptr);
+                    reinterpret_cast<void*>((intptr_t)client_sock), 5, nullptr);
     }
 }
 
@@ -770,7 +776,7 @@ static void tcp_client_task(void *pvParameters)
         if (state == 0)
         {
             const err_t err = dns_gethostbyname(/*"www.google.com"*/ SERVER_HOSTNAME ,
-                &resolved_addr, dns_callback, NULL);
+                &resolved_addr, dns_callback, nullptr);
             if (err == ERR_OK) {
                 // Hostname was already cached or is a valid IP string
                 ip4addr_ntoa_r((const struct ip4_addr *) &resolved_addr, ip_str, sizeof(ip_str));
@@ -795,7 +801,7 @@ static void tcp_client_task(void *pvParameters)
         // struct addrinfo hints = { .ai_family = AF_INET, .ai_socktype = SOCK_STREAM };
         // struct addrinfo *res = nullptr;
         // if (getaddrinfo(SERVER_HOSTNAME, nullptr, &hints, &res) == 0 &&
-        //     res != NULL) {
+        //     res != nullptr) {
         //     size_t ip_str_len = 0;
         //     struct sockaddr_in *sa = (struct sockaddr_in *)res->ai_addr;
         //     inet_ntoa_r(sa->sin_addr, ip_str, ip_str_len);
@@ -915,7 +921,7 @@ static void tcp_client_task(void *pvParameters)
 
 #endif	/* CLIENT */
 
-void app_main(void)
+extern "C" void app_main()
 {
     buildCRC24qTable();
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -938,7 +944,7 @@ void app_main(void)
     uart1_init();
     uart_write_bytes(UART_NUM_1, "Hello UART1\n", strlen("Hello UART1\n"));
 
-    test();
+    //test();
 
     eth_init();
 
@@ -957,11 +963,11 @@ void app_main(void)
     }
 
 #if defined(CLIENT)
-    xTaskCreate(tcp_client_task, "tcp_client", 4096, NULL, 5, nullptr);
+    xTaskCreate(tcp_client_task, "tcp_client", 4096, nullptr, 5, nullptr);
 #endif
 #if defined(SERVER)
     // s_data_rx_callback = default_data_rx_callback;
-    xTaskCreate(tcp_server_task, "tcp_server", 4096, (void *) AF_INET, 5, nullptr);
+    xTaskCreate(tcp_server_task, "tcp_server", 4096, reinterpret_cast<void*>(AF_INET), 5, nullptr);
 #endif
     // ReSharper disable once CppDFAEndlessLoop
     while (true)
