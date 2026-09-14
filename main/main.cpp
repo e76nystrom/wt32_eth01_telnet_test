@@ -50,33 +50,41 @@
 #define TX_PIN_2 14
 #define RX_PIN_2 12
 
-#define DBG0_PIN 2
-#define DBG1_PIN 4
+// #define DBG0_PIN 2
+// #define DBG1_PIN 4
 
 #define RX_BUF_SIZE 1024
 #define TX_BUF_SIZE 1024
 
 void test();
 
-inline void dbg0Set()
-{
-    REG_WRITE(GPIO_OUT_W1TS_REG, (1 << DBG0_PIN));
-}
+// #include "dbgPin.h"
+// 
+// inline void dbg0Set()
+// {
+//     REG_WRITE(GPIO_OUT_W1TS_REG, (1 << DBG0_PIN));
+// }
+//
+// inline void dbg0Clr()
+// {
+//  REG_WRITE(GPIO_OUT_W1TC_REG, (1 << DBG0_PIN));
+// }
+//
+// inline void dbg1Set()
+// {
+//  REG_WRITE(GPIO_OUT_W1TS_REG, (1 << DBG1_PIN));
+// }
+//
+// inline void dbg1Clr()
+// {
+//  REG_WRITE(GPIO_OUT_W1TC_REG, (1 << DBG1_PIN));
+// }
 
-inline void dbg0Clr()
-{
- REG_WRITE(GPIO_OUT_W1TC_REG, (1 << DBG0_PIN));
-}
+#define GPS_LIB
 
-inline void dbg1Set()
-{
- REG_WRITE(GPIO_OUT_W1TS_REG, (1 << DBG1_PIN));
-}
-
-inline void dbg1Clr()
-{
- REG_WRITE(GPIO_OUT_W1TC_REG, (1 << DBG1_PIN));
-}
+#if defined(GPS_LIB)
+#include "gpsLib.h"
+#endif  /* GPS_LIB */
 
 void uart1_init() {
     uart_config_t uart_config;
@@ -192,9 +200,7 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
 
 static void tx_rx_event_handler(void *arg, esp_event_base_t event_base,
 				int32_t event_id, void *event_data) {
-    auto event = static_cast<ip_event_tx_rx_t*>(event_data);
-
-    if (event->dir == ESP_NETIF_RX) {
+    if (auto event = static_cast<ip_event_tx_rx_t*>(event_data); event->dir == ESP_NETIF_RX) {
         // Process incoming data from event->len or associated buffers
         ESP_LOGI("TAG", "Got RX event: Interface \"%s\" data len: %d",
                  esp_netif_get_desc(event->esp_netif), event->len);
@@ -219,8 +225,7 @@ static esp_eth_handle_t eth_init()
     esp_netif_config_t netif_cfg = ESP_NETIF_DEFAULT_ETH();
     eth_netif = esp_netif_new(&netif_cfg);
 
-    esp_err_t err = esp_netif_set_hostname(eth_netif, hostname);
-    if (err != ESP_OK) {
+  if (esp_err_t err = esp_netif_set_hostname(eth_netif, hostname); err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set hostname: %s", esp_err_to_name(err));
     } else {
         ESP_LOGI(TAG, "Hostname set to: %s", hostname);
@@ -264,6 +269,8 @@ static esp_eth_handle_t eth_init()
     ESP_ERROR_CHECK(esp_eth_start(eth_handle));
     return eth_handle;
 }
+
+#if !defined(GPS_LIB)
 
 /* ── CRC-24Q constants ───────────────────────────────────────────────────── */
  
@@ -318,6 +325,8 @@ typedef struct S_RTK_DATA
 } T_RTK_DATA, *P_RTK_DATA;
 
 T_RTK_DATA rtk;
+
+#endif  /* GPS_LIB */
 
 #if defined(SERVER)
 
@@ -580,6 +589,8 @@ static void tcp_server_task(void *pvParameters)
 
 #if defined(CLIENT)
 
+#if !defined(GPS_LIB)
+
 char* nextArg(char* p0)
 {
  while (true)
@@ -746,6 +757,8 @@ void processSerial(const int sock, char* buf, size_t len)
     dbg1Clr();
 }
 
+#endif  /* GPS_LIB */
+
 ip_addr_t resolved_addr;
 int state;
 char ip_str[20];
@@ -755,7 +768,7 @@ char ip_str[20];
 //{}
 void dns_callback(const char *name, const ip_addr_t *ipaddr, void *arg) {
     if (ipaddr) {
-        ip4addr_ntoa_r((const struct ip4_addr *) ipaddr, ip_str, sizeof(ip_str));
+        ip4addr_ntoa_r(reinterpret_cast<const struct ip4_addr*>(ipaddr), ip_str, sizeof(ip_str));
         // Handle successful resolution
         printf("Resolved %s to %s\n", name, ip_str);
         resolved_addr.u_addr.ip4.addr = ipaddr->u_addr.ip4.addr;
@@ -779,7 +792,7 @@ static void tcp_client_task(void *pvParameters)
                 &resolved_addr, dns_callback, nullptr);
             if (err == ERR_OK) {
                 // Hostname was already cached or is a valid IP string
-                ip4addr_ntoa_r((const struct ip4_addr *) &resolved_addr, ip_str, sizeof(ip_str));
+                ip4addr_ntoa_r(reinterpret_cast<const struct ip4_addr*>(&resolved_addr), ip_str, sizeof(ip_str));
                 printf("ip %s\n", ip_str);
                 break;
             } else if (err == ERR_INPROGRESS) {
@@ -796,7 +809,7 @@ static void tcp_client_task(void *pvParameters)
     }
 
     // ReSharper disable once CppDFAEndlessLoop
-    while (1) {
+    while (true) {
         // char ip_str[20];
         // struct addrinfo hints = { .ai_family = AF_INET, .ai_socktype = SOCK_STREAM };
         // struct addrinfo *res = nullptr;
@@ -813,7 +826,7 @@ static void tcp_client_task(void *pvParameters)
         //     continue;
         // }
 
-        struct sockaddr_in dest_addr;
+        struct sockaddr_in dest_addr{};
         dest_addr.sin_addr.s_addr = resolved_addr.u_addr.ip4.addr;
         dest_addr.sin_family = AF_INET;
         dest_addr.sin_port = htons(TCP_SERVER_PORT);
@@ -829,8 +842,7 @@ static void tcp_client_task(void *pvParameters)
         }
 
         ESP_LOGI(TAG, "Connecting to %s:%d ...", ip_str, TCP_SERVER_PORT);
-        const int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        if (err != 0) {
+        if (const int err = connect(sock, reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr)); err != 0) {
             ESP_LOGE(TAG, "Connect failed: err %d errno %d %x", err, errno, errno);
             close(sock);
             vTaskDelay(pdMS_TO_TICKS(4000));
@@ -868,12 +880,11 @@ static void tcp_client_task(void *pvParameters)
             uart_len -= len;
         }
 
-        while (1)
+        while (true)
         {
             if (rtk.state != RCV_IDLE)
             {
-                const unsigned int delta = (unsigned int) (esp_timer_get_time() - rtk.t0);
-                if (delta > (100 * 1000))
+                if (const auto delta = static_cast<unsigned int>(esp_timer_get_time() - rtk.t0); delta > (100 * 1000))
                 {
                     printf("receive timeout %d %u\n", rtk.state, delta);
                     rtk.state = RCV_IDLE;
@@ -894,8 +905,7 @@ static void tcp_client_task(void *pvParameters)
 
             // 2. Check Socket
             char sock_buf[128];
-            int len = recv(sock, sock_buf, sizeof(sock_buf) - 1, MSG_DONTWAIT);
-            if (len > 0)
+            if (int len = recv(sock, sock_buf, sizeof(sock_buf) - 1, MSG_DONTWAIT); len > 0)
             {
                 sock_buf[len] = '\0';
                 // Send socket data to UART
