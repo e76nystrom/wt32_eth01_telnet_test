@@ -30,8 +30,7 @@
 #include "esp_timer.h"
 #include "esp32/rom/gpio.h"
 
-//#define SERVER
-//#define CLIENT
+#define U8X8
 
 #if defined(SERVER)
 #pragma message("building SERVER")
@@ -77,6 +76,107 @@ inline void dbg1Clr()
 {
  REG_WRITE(GPIO_OUT_W1TC_REG, (1 << DBG1_PIN));
 }
+
+#if defined(U8X8)
+#include "driver/i2c_master.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "u8x8.h"
+
+static i2c_master_dev_handle_t dev_handle;
+
+uint8_t u8x8_byte_esp_idf_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+ static uint8_t buffer[32];
+ static uint8_t buf_idx;
+
+ switch (msg) {
+ case U8X8_MSG_BYTE_SEND: {
+  uint8_t *data = (uint8_t *)arg_ptr;
+  while (arg_int > 0) {
+   buffer[buf_idx++] = *data++;
+   arg_int--;
+  }
+  break;
+ }
+ case U8X8_MSG_BYTE_START_TRANSFER:
+  buf_idx = 0;
+  break;
+ case U8X8_MSG_BYTE_END_TRANSFER:
+  i2c_master_transmit(dev_handle, buffer, buf_idx, -1);
+  break;
+ case U8X8_MSG_BYTE_INIT:
+ case U8X8_MSG_BYTE_SET_DC:
+  break;
+ default:
+  return 0;
+ }
+ return 1;
+}
+
+uint8_t u8x8_gpio_and_delay_esp_idf(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+ switch (msg) {
+ case U8X8_MSG_GPIO_AND_DELAY_INIT:
+  break; // I2C bus/device already set up in app_main()
+ case U8X8_MSG_DELAY_MILLI:
+  vTaskDelay(pdMS_TO_TICKS(arg_int));
+  break;
+ case U8X8_MSG_DELAY_10MICRO:
+  esp_rom_delay_us(arg_int * 10);
+  break;
+ case U8X8_MSG_DELAY_100NANO:
+  esp_rom_delay_us(1);
+  break;
+ case U8X8_MSG_GPIO_I2C_CLOCK:
+ case U8X8_MSG_GPIO_I2C_DATA:
+  break; // hardware I2C peripheral drives these lines
+ default:
+  return 0;
+ }
+ return 1;
+}
+
+#include "esp_rom_sys.h" // for esp_rom_delay_us
+
+#define I2C_PORT     I2C_NUM_0
+#define I2C_SDA_PIN  21
+#define I2C_SCL_PIN  22
+#define SH1106_ADDR  0x3C
+
+void u8x8Init()
+{
+ i2c_master_bus_config_t bus_config = {
+  .i2c_port = I2C_PORT,
+  .sda_io_num = I2C_SDA_PIN,
+  .scl_io_num = I2C_SCL_PIN,
+  .clk_source = I2C_CLK_SRC_DEFAULT,
+  .glitch_ignore_cnt = 7,
+  .flags.enable_internal_pullup = true,
+ };
+ i2c_master_bus_handle_t bus_handle;
+ i2c_new_master_bus(&bus_config, &bus_handle);
+
+ i2c_device_config_t dev_config = {
+  .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+  .device_address = SH1106_ADDR,
+  .scl_speed_hz = 400000,
+ };
+ i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle);
+
+ u8x8_t u8x8;
+ u8x8_Setup(&u8x8, u8x8_d_sh1106_128x64_noname,
+	    u8x8_cad_ssd13xx_i2c,
+	    u8x8_byte_esp_idf_i2c,
+	    u8x8_gpio_and_delay_esp_idf);
+
+ u8x8_InitDisplay(&u8x8);
+ u8x8_SetPowerSave(&u8x8, 0);
+ u8x8_ClearDisplay(&u8x8);
+
+ u8x8_SetFont(&u8x8, u8x8_font_chroma48medium8_r);
+ u8x8_DrawString(&u8x8, 0, 0, "Hello ESP32!");
+}
+
+#endif	/* U8X8 */
 
 void uart1_init() {
     uart_config_t uart_config = {
@@ -938,6 +1038,8 @@ void app_main(void)
     uart1_init();
     uart_write_bytes(UART_NUM_1, "Hello UART1\n", strlen("Hello UART1\n"));
 
+    u8x8Init();
+    
     test();
 
     eth_init();
