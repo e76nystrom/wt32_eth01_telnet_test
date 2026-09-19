@@ -8,3 +8,4 @@ cmake.sh
 saved/
 build_server/
 build_client/
+\#*
