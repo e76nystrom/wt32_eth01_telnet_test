@@ -1,5 +1,7 @@
 #!/bin/zsh
 
+echo $IDF_PATH
+
 if [[ -z "$IDF_PATH" ]]; then
  source ~/.espressif/v6.0.1/esp-idf/export.sh
 fi
@@ -32,4 +34,4 @@ if [[ "$1" == "C" ]]; then
 fi
 
 echo $TTY
-picocom -b 115200 $TTY
+picocom -b 115200 $TTY --imap lfcrlf

@@ -24,6 +24,18 @@ idf_build_set_property(COMPILE_DEFINITIONS "-DDBG1_PIN=4" APPEND)
 idf_build_set_property(COMPILE_DEFINITIONS "-DPORT=8088" APPEND)
 idf_build_set_property(COMPILE_DEFINITIONS "-D${BUILD_TARGET}" APPEND)
 
+add_compile_definitions("-DSERVER_HOSTNAME=\"Server2\"")
+#add_compile_definitions("-DSERVER_HOSTNAME=\"srv3\"")
+
+if(BUILD_TARGET STREQUAL "SERVER")
+    add_compile_definitions("-DTCP_SERVER")
+endif()
+
+if(BUILD_TARGET STREQUAL "CLIENT")
+    add_compile_definitions("-DTCP_CLIENT")
+    add_compile_definitions("-DCLIENT_HOSTNAME=\"Client2\"")
+endif()
+
 #if(BUILD_TARGET STREQUAL "SERVER")
 #    idf_build_set_property(COMPILE_DEFINITIONS "-DMY_PORT=8080" APPEND)
 #else()

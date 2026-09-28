@@ -69,6 +69,8 @@ void test();
 
 #if defined(U8X8)
 
+extern "C" { uint8_t temprature_sens_read(void); }
+
 #include "oledLib.h"
 #include "driver/i2c_master.h"
 #include "u8x8.h"
@@ -247,7 +249,6 @@ void uart2_init()
 
 static const char *TAG = "wt32_eth01_tcp";
 
-#define SERVER_HOSTNAME  "Server2"
 #define TCP_SERVER_PORT  8088
 
 /* WT32-ETH01 pin mapping (LAN8720 PHY, RMII) */
@@ -262,11 +263,11 @@ static EventGroupHandle_t eth_event_group;
 #define ETH_CONNECTED_BIT BIT0
 
 #if defined(SERVER)
-const char *hostname = "Server2";
+const char *hostname = SERVER_HOSTNAME;
 #endif
 
 #if defined(CLIENT)
-const char *hostname = "Client1";
+const char *hostname = CLIENT_HOSTNAME;
 #endif
 
 static void eth_event_handler(void *arg, esp_event_base_t event_base,
@@ -431,7 +432,7 @@ static void tcp_server_client_handler(void* pvParameters)
 
 #if defined(GPS_LIB)
 
-  pollSerial()
+  pollSerial();
 
 #endif	/* GPS_LIB */
 
@@ -494,8 +495,6 @@ static void tcp_server_client_handler(void* pvParameters)
  vTaskDelete(nullptr);
  printf("task done\n");
 }
-
-extern "C" { uint8_t temprature_sens_read(void); }
 
 static void tcp_server_task(void* pvParameters)
 {
@@ -665,7 +664,6 @@ static void tcp_client_task(void* pvParameters)
  // ReSharper disable once CppDFAEndlessLoop
  while (true)
  {
-
   struct sockaddr_in dest_addr{};
   dest_addr.sin_addr.s_addr = resolved_addr.u_addr.ip4.addr;
   dest_addr.sin_family = AF_INET;
@@ -705,6 +703,15 @@ static void tcp_client_task(void* pvParameters)
    uart_len -= len;
   }
 
+  int tmp = 1;
+  setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &tmp, sizeof(tmp));
+  tmp = 30;         // seconds before first probe
+  setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &tmp, sizeof(tmp));
+  tmp = 10;         // seconds between probes
+  setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &tmp, sizeof(tmp));
+  tmp = 3;          // failed probes before declaring dead
+  setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &tmp, sizeof(tmp));
+
   while (true)
   {
 #if defined(U8X8)
@@ -737,6 +744,10 @@ static void tcp_client_task(void* pvParameters)
 
     processSerial(sock, uart_buf, len);
 
+    uart_len -= len;
+    // rtk.t0 = esp_timer_get_time();
+   }
+
 #if defined(U8X8)
 
    if (gpsInfo.update)
@@ -755,22 +766,17 @@ static void tcp_client_task(void* pvParameters)
 
 #endif	/* USE_U8X8 */
 
-    uart_len -= len;
-    // rtk.t0 = esp_timer_get_time();
-   }
-
    // 2. Check Socket
-   char sock_buf[128];
+   char sock_buf[512];
    if (int len = recv(sock, sock_buf, sizeof(sock_buf) - 1, MSG_DONTWAIT);
        len > 0)
    {
     sock_buf[len] = '\0';
-#if 1
+
     processRemData(sock_buf, len);
-#else
+
     // Send socket data to UART
     uart_write_bytes(UART_NUM_1, sock_buf, len);
-#endif
    }
    else if (len < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
    {
@@ -848,7 +854,6 @@ extern "C" void app_main()
  snprintf(tmp, sizeof(tmp), IPSTR " %c", IP2STR(&ipInfo.ip), hostname[0]);
  drawString(0, 0, tmp);
 #endif	/* USE_U8X8 */
-
 
 #if defined(CLIENT)
  xTaskCreate(tcp_client_task, "tcp_client", 4096, nullptr, 5, nullptr);
